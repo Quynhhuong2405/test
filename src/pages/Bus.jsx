@@ -25,14 +25,14 @@ export default function Buses() {
     AdminService.listBuses(q).then(setRows).finally(() => setLoading(false))
   }, [q])
 
-  const refresh = () => { setLoading(true); return AdminService.listBuses(q).then(setRows).finally(() => setLoading(false)) }
+  const refresh = () => { setLoading(true); return AdminService. listBuses(q).then(setRows).finally(() => setLoading(false)) }
   const onAdd = () => { setEditing(null); setOpen(true) }
   const onEdit = (row) => { setEditing(row); setOpen(true) }
   const onDelete = (row) => setConfirm({ open: true, row })
 
   const confirmDelete = async () => {
     try {
-      if (confirm.row) await AdminService.deleteBus(confirm.row.bus_id)
+      if (confirm. row) await AdminService.deleteBus(confirm.row.bus_id)
       notify.success('Xóa thành công')
     } catch {
       notify.error('Có lỗi xảy ra')
@@ -61,21 +61,21 @@ export default function Buses() {
       renderCell: (params) => <StatusChip code={params.value} />
     },
     {
-      field: 'actions', headerName: 'Hành động', width: 120, sortable: false, filterable: false,
+      field: 'actions', headerName: 'Hành động', width: 160, sortable: false, filterable: false,
       renderCell: (params) => (
         <Stack direction="row" spacing={1}>
+          <IconButton size="small" color="primary" onClick={onAdd}><AddIcon fontSize="small" /></IconButton>
           <IconButton size="small" onClick={() => onEdit(params.row)}><EditIcon fontSize="small" /></IconButton>
-          <IconButton size="small" color="error" onClick={() => onDelete(params.row)}><DeleteIcon fontSize="small" /></IconButton>
+          <IconButton size="small" color="error" onClick={() => onDelete(params. row)}><DeleteIcon fontSize="small" /></IconButton>
         </Stack>
       )
     },
   ], [])
 
   return (
-    <>
+    <Box>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Xe buýt</Typography>
-        <Button startIcon={<AddIcon />} variant="contained" onClick={onAdd}>Thêm xe</Button>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Danh sách xe</Typography>
       </Stack>
       <Paper sx={{ height: 520, width: '100%' }}>
         <Toolbar variant="dense" />
@@ -93,13 +93,13 @@ export default function Buses() {
       <BusFormDialog open={open} onClose={() => setOpen(false)} initialValue={editing} onSubmit={onSubmit} />
       <ConfirmDialog
         open={confirm.open}
-        title="Xóa xe buýt"
-        message={`Bạn có chắc muốn xóa xe buýt "${confirm.row?.plate_number}"?`}
+        title="Xóa xe"
+        message={`Bạn có chắc muốn xóa xe "${confirm.row?. plate_number}"? `}
         cancelText="Hủy"
         okText="Xóa"
         onCancel={() => setConfirm({ open: false, row: null })}
         onOk={confirmDelete}
       />
-    </>
+    </Box>
   )
 }
