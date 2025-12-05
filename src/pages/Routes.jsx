@@ -1,117 +1,205 @@
 import React, { useEffect, useState } from 'react'
-import { Accordion, AccordionDetails, AccordionSummary, Chip, Stack, Typography, Button, IconButton, Tooltip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { Box, Button, Chip, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Tooltip, Collapse } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import RefreshIcon from '@mui/icons-material/Refresh'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import RouteIcon from '@mui/icons-material/AltRoute'
 import { AdminService } from '../api/services'
 import RouteFormDialog from '../components/RouteFormDialog'
-import StopFormDialog from '../components/StopFormDialog'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useNotify } from '../hooks/useNotify'
 
 export default function RoutesPage() {
   const [rows, setRows] = useState([])
-  const [routeOpen, setRouteOpen] = useState(false)
-  const [stopOpen, setStopOpen] = useState(false)
-  const [editingRoute, setEditingRoute] = useState(null)
-  const [editingStop, setEditingStop] = useState(null)
-  const [confirm, setConfirm] = useState({ open: false, type: '', payload: null })
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [confirm, setConfirm] = useState({ open: false, row: null })
+  const [expandedId, setExpandedId] = useState(null)
   const notify = useNotify()
 
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const data = await AdminService.listRoutes()
+      setRows(data)
+    } catch (error) {
+      console.error('Error fetching routes:', error)
+      notify.error('Không thể tải danh sách tuyến đường')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    AdminService.listRoutes().then(setRows)
+    fetchData()
   }, [])
 
-  const refresh = () => AdminService.listRoutes().then(setRows)
-  const onAddRoute = () => { setEditingRoute(null); setRouteOpen(true) }
-  const onEditRoute = (r) => { setEditingRoute(r); setRouteOpen(true) }
-  const onDeleteRoute = (r) => setConfirm({ open: true, type: 'route', payload: r })
-
-  const onSubmitRoute = async (form) => {
-    try {
-      if (editingRoute) { await AdminService.updateRoute(editingRoute.route_id, form); notify.success('Cập nhật thành công') }
-      else { await AdminService.createRoute(form); notify.success('Tạo thành công') }
-    } catch {
-      notify.error('Có lỗi xảy ra')
-    }
-    setRouteOpen(false); setEditingRoute(null); refresh()
-  }
-
-  const onAddStop = (route) => { setEditingStop({ route_id: route.route_id, name: '', address: '', latitude: '', longitude: '', seq_index: (route.stops?.length || 0) + 1 }); setStopOpen(true) }
-  const onEditStop = (stop) => { setEditingStop(stop); setStopOpen(true) }
-  const onDeleteStop = (stop) => setConfirm({ open: true, type: 'stop', payload: stop })
-
-  const onSubmitStop = async (form) => {
-    try {
-      if (editingStop?.stop_id) { await AdminService.updateStop(editingStop.stop_id, form); notify.success('Cập nhật thành công') }
-      else { await AdminService.createStop(form); notify.success('Tạo thành công') }
-    } catch {
-      notify.error('Có lỗi xảy ra')
-    }
-    setStopOpen(false); setEditingStop(null); refresh()
-  }
+  const onAdd = () => { setEditing(null); setOpen(true) }
+  const onEdit = (row) => { setEditing(row); setOpen(true) }
+  const onDelete = (row) => setConfirm({ open: true, row })
 
   const confirmDelete = async () => {
     try {
-      if (confirm.type === 'route') await AdminService.deleteRoute(confirm.payload.route_id)
-      if (confirm.type === 'stop') await AdminService.deleteStop(confirm.payload.stop_id)
-      notify.success('Xóa thành công')
+      if (confirm.row) {
+        await AdminService.deleteRoute(confirm.row._id || confirm.row.route_id)
+        notify.success('Xóa thành công')
+        fetchData()
+      }
     } catch {
       notify.error('Có lỗi xảy ra')
     }
-    setConfirm({ open: false, type: '', payload: null })
-    refresh()
+    setConfirm({ open: false, row: null })
+  }
+
+  const onSubmit = async (form) => {
+    try {
+      if (editing) { 
+        await AdminService.updateRoute(editing._id || editing.route_id, form)
+        notify.success('Cập nhật thành công') 
+      } else { 
+        await AdminService.createRoute(form)
+        notify.success('Tạo thành công') 
+      }
+      setOpen(false)
+      setEditing(null)
+      fetchData()
+    } catch (error) {
+      notify.error(error.response?.data?.msg || 'Có lỗi xảy ra')
+    }
   }
 
   return (
-    <>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Tuyến đường</Typography>
-        <Button startIcon={<AddIcon />} variant="contained" onClick={onAddRoute}>Thêm tuyến</Button>
+    <Box>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b' }}>
+            Tuyến đường
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5 }}>
+            Quản lý các tuyến đưa đón học sinh ({rows.length} tuyến)
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={fetchData} sx={{ borderRadius: 2 }}>
+            Làm mới
+          </Button>
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />} 
+            onClick={onAdd}
+            sx={{ borderRadius: 2, background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)' }}
+          >
+            Thêm tuyến
+          </Button>
+        </Stack>
       </Stack>
-      <TableContainer component={Paper} sx={{ borderRadius: 3, mb: 2 }}>
+
+      <TableContainer component={Paper} sx={{ borderRadius: 3, border: '1px solid #e2e8f0' }}>
         <Table>
-          <TableHead sx={{ bgcolor: "#f1f5f9" }}>
+          <TableHead sx={{ bgcolor: '#f8fafc' }}>
             <TableRow>
-              <TableCell>ID</TableCell>
+              <TableCell width={50}></TableCell>
               <TableCell>Tên tuyến</TableCell>
               <TableCell>Điểm đầu</TableCell>
               <TableCell>Điểm cuối</TableCell>
-              <TableCell>Số điểm dừng</TableCell>
+              <TableCell>Số trạm</TableCell>
               <TableCell>Khoảng cách</TableCell>
+              <TableCell>Thời gian</TableCell>
               <TableCell>Hành động</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {rows.map((route) => (
-              <TableRow key={route.route_id}>
-                <TableCell>{route.route_id}</TableCell>
-                <TableCell>{route.name}</TableCell>
-                <TableCell>{route.start}</TableCell>
-                <TableCell>{route.end}</TableCell>
-                <TableCell>{route.stops?.length}</TableCell>
-                <TableCell>{route.distance}</TableCell>
-                <TableCell>
-                  <IconButton color="primary" onClick={() => onEditRoute(route)}><EditIcon /></IconButton>
-                  <IconButton color="error" onClick={() => onDeleteRoute(route)}><DeleteIcon /></IconButton>
+              <React.Fragment key={route._id || route.route_id}>
+                <TableRow hover>
+                  <TableCell>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => setExpandedId(expandedId === route._id ? null : route._id)}
+                    >
+                      {expandedId === route._id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </IconButton>
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <RouteIcon sx={{ color: '#06b6d4' }} />
+                      <Typography fontWeight={600}>{route.name}</Typography>
+                    </Stack>
+                  </TableCell>
+                  <TableCell>{route.start || '—'}</TableCell>
+                  <TableCell>{route.end || '—'}</TableCell>
+                  <TableCell>
+                    <Chip size="small" label={`${route.stops?.length || 0} trạm`} color="primary" variant="outlined" />
+                  </TableCell>
+                  <TableCell>{route.distance || '—'}</TableCell>
+                  <TableCell>{route.duration || '—'}</TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5}>
+                      <Tooltip title="Sửa">
+                        <IconButton size="small" sx={{ color: '#f59e0b' }} onClick={() => onEdit(route)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Xóa">
+                        <IconButton size="small" sx={{ color: '#ef4444' }} onClick={() => onDelete(route)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell colSpan={8} sx={{ py: 0, border: 0 }}>
+                    <Collapse in={expandedId === route._id} timeout="auto" unmountOnExit>
+                      <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, my: 1 }}>
+                        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                          📍 Các trạm dừng:
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          {route.stops?.map((stop, idx) => (
+                            <Chip 
+                              key={stop._id || stop.stop_id || idx} 
+                              label={`${idx + 1}. ${stop.name}`} 
+                              size="small" 
+                              variant="outlined"
+                              sx={{ mb: 1 }}
+                            />
+                          ))}
+                          {(!route.stops || route.stops.length === 0) && (
+                            <Typography variant="body2" color="text.secondary">Chưa có trạm nào</Typography>
+                          )}
+                        </Stack>
+                      </Box>
+                    </Collapse>
+                  </TableCell>
+                </TableRow>
+              </React.Fragment>
+            ))}
+            {rows.length === 0 && ! loading && (
+              <TableRow>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <Typography color="text.secondary">Chưa có tuyến đường nào</Typography>
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </TableContainer>
-      <RouteFormDialog open={routeOpen} onClose={() => setRouteOpen(false)} initialValue={editingRoute} onSubmit={onSubmitRoute} />
-      <StopFormDialog open={stopOpen} onClose={() => setStopOpen(false)} initialValue={editingStop} onSubmit={onSubmitStop} />
+
+      <RouteFormDialog open={open} onClose={() => setOpen(false)} initialValue={editing} onSubmit={onSubmit} />
       <ConfirmDialog
         open={confirm.open}
-        title={confirm.type === 'route' ? 'Xóa tuyến đường' : 'Xóa điểm dừng'}
-        message={confirm.type === 'route' ? `Bạn có chắc muốn xóa tuyến "${confirm.payload?.name}"?` : `Bạn có chắc muốn xóa điểm dừng "${confirm.payload?.name}"?`}
+        title="Xóa tuyến đường"
+        message={`Bạn có chắc muốn xóa tuyến "${confirm.row?.name}"?`}
         cancelText="Hủy"
         okText="Xóa"
-        onCancel={() => setConfirm({ open: false, type: '', payload: null })}
+        onCancel={() => setConfirm({ open: false, row: null })}
         onOk={confirmDelete}
       />
-    </>
+    </Box>
   )
 }

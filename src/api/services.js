@@ -1,198 +1,496 @@
-import { students, users, drivers, buses, routes, stops, trips, messages } from './mockData'
+import api from './client'
 
-// Giả lập delay như API thật
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+// ============================================================
+// ADMIN SERVICE - Kết nối Backend của Bao
+// Base URL: https://smart-school-bus-api.onrender.com/api/v1
+// ============================================================
 
 export const AdminService = {
-  // Students
-  listStudents: async () => {
-    await delay(300)
-    return students
-  },
-  createStudent: async (data) => {
-    await delay(300)
-    const newStudent = { ...data, student_id: students.length + 1 }
-    students.push(newStudent)
-    return newStudent
-  },
-  updateStudent: async (id, data) => {
-    await delay(300)
-    const index = students.findIndex(s => s.student_id === id)
-    if (index !== -1) students[index] = { ...students[index], ...data }
-    return students[index]
-  },
-  deleteStudent: async (id) => {
-    await delay(300)
-    const index = students.findIndex(s => s.student_id === id)
-    if (index !== -1) students.splice(index, 1)
-    return { success: true }
-  },
 
-  // Drivers
-  listDrivers: async () => {
-    await delay(300)
-    return users.filter(u => u.role_id === 2).map(u => {
-      const driver = drivers.find(d => d.driver_id === u.user_id)
-      return { ...u, license_number: driver?.license_number || '' }
+  // ==================== AUTHENTICATION ====================
+  login: async (credentials) => {
+    const response = await api.post('/auth/signin', {
+      username: credentials.email || credentials.username,
+      password: credentials.password
     })
+    
+    console.log('Login response:', response.data)
+    
+    // Backend trả về: { status, accessToken, data: { user } }
+    if (response.data.accessToken) {
+      localStorage.setItem('accessToken', response.data.accessToken)
+      localStorage.setItem('user', JSON.stringify(response.data.data?.user || {}))
+    }
+    
+    return response.data
   },
+
+  refreshToken: async () => {
+    const response = await api.post('/auth/token')
+    if (response.data.accessToken) {
+      localStorage.setItem('accessToken', response.data.accessToken)
+    }
+    return response.data
+  },
+
+  logout: async () => {
+    try {
+      await api.delete('/auth/logout')
+    } finally {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('user')
+    }
+  },
+
+  // ==================== USERS ====================
+  listUsers: async (params = {}) => {
+    const response = await api.get('/users', { params })
+    return response.data.data || []
+  },
+
+  getMe: async () => {
+    const response = await api.get('/users/me')
+    return response.data.data
+  },
+
+  updateMe: async (data) => {
+    const response = await api.patch('/users/me', data)
+    return response.data.data
+  },
+
+  createUser: async (data) => {
+    const response = await api.post('/users', data)
+    return response.data.data
+  },
+
+  deleteUser: async (id) => {
+    await api.delete(`/users/${id}`)
+    return { success: true }
+  },
+
+  // ==================== DRIVERS ====================
+  listDrivers: async (params = {}) => {
+    const response = await api.get('/users', { params })
+    const users = response.data.data || []
+    return users
+      .filter(u => u.role === 'Driver')
+      .map(u => ({
+        ...u,
+        user_id: u._id,
+        phone_number: u.phoneNumber,
+        is_active: u.isActive !== false
+      }))
+  },
+
   createDriver: async (data) => {
-    await delay(300)
-    const newUser = { ...data, user_id: users.length + 1, role_id: 2 }
-    users.push(newUser)
-    drivers.push({ driver_id: newUser.user_id, license_number: data.license_number })
-    return newUser
+    const payload = {
+      name: data.name,
+      email: data.email,
+      phoneNumber: data.phoneNumber || data.phone_number,
+      password: data.password || 'Driver123',
+      role: 'Driver'
+    }
+    const response = await api.post('/users', payload)
+    return response.data.data
   },
+
   updateDriver: async (id, data) => {
-    await delay(300)
-    const index = users.findIndex(u => u.user_id === id)
-    if (index !== -1) users[index] = { ...users[index], ...data }
-    return users[index]
+    const response = await api.patch(`/users/${id}`, data)
+    return response.data.data
   },
+
   deleteDriver: async (id) => {
-    await delay(300)
-    const index = users.findIndex(u => u.user_id === id)
-    if (index !== -1) users.splice(index, 1)
+    await api.delete(`/users/${id}`)
     return { success: true }
   },
 
-  // Buses
-  listBuses: async () => {
-    await delay(300)
-    return buses
+  // ==================== PARENTS ====================
+  listParents: async () => {
+    const response = await api.get('/users')
+    const users = response.data.data || []
+    return users.filter(u => u.role === 'Parent')
   },
+
+  // ==================== STUDENTS ====================
+  listStudents: async (params = {}) => {
+    const response = await api.get('/students', { params })
+    const students = response.data.data || []
+    return students.map(s => ({
+      ...s,
+      student_id: s._id,
+      class: s.grade,
+      parent_name: s.parentId?.name || '',
+      parent_phone: s.parentId?.phoneNumber || ''
+    }))
+  },
+
+  getStudent: async (id) => {
+    const response = await api.get(`/students/${id}`)
+    return response.data.data
+  },
+
+  createStudent: async (data) => {
+    const payload = {
+      name: data.name,
+      grade: data.grade || data.class,
+      parentId: data.parentId || data.parent_id,
+      fullAddress: data.fullAddress || 'Chưa cập nhật',
+      location: {
+        type: 'Point',
+        coordinates: [
+          parseFloat(data.longitude) || 106.6942,
+          parseFloat(data.latitude) || 10.7725
+        ]
+      }
+    }
+    const response = await api.post('/students', payload)
+    return response.data.data
+  },
+
+  updateStudent: async (id, data) => {
+    const response = await api.patch(`/students/${id}`, data)
+    return response.data.data
+  },
+
+  deleteStudent: async (id) => {
+    await api.delete(`/students/${id}`)
+    return { success: true }
+  },
+
+  // 🔴 UPLOAD ẢNH KHUÔN MẶT HỌC SINH
+  uploadStudentFace: async (studentId, imageFile) => {
+    const formData = new FormData()
+    formData.append('image', imageFile)
+    
+    const response = await api.post(`/students/${studentId}/face-data`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+
+  // ==================== BUSES ====================
+  listBuses: async (params = {}) => {
+    const response = await api.get('/buses', { params })
+    const buses = response.data.data || []
+    return buses.map(b => ({
+      ...b,
+      bus_id: b._id,
+      plate_number: b.licensePlate
+    }))
+  },
+
+  getBus: async (id) => {
+    const response = await api.get(`/buses/${id}`)
+    return response.data.data
+  },
+
   createBus: async (data) => {
-    await delay(300)
-    const newBus = { ...data, bus_id: buses.length + 1 }
-    buses.push(newBus)
-    return newBus
+    const response = await api.post('/buses', {
+      licensePlate: data.licensePlate || data.plate_number
+    })
+    return response.data.data
   },
+
   updateBus: async (id, data) => {
-    await delay(300)
-    const index = buses.findIndex(b => b.bus_id === id)
-    if (index !== -1) buses[index] = { ...buses[index], ...data }
-    return buses[index]
+    const response = await api.patch(`/buses/${id}`, data)
+    return response.data.data
   },
+
   deleteBus: async (id) => {
-    await delay(300)
-    const index = buses.findIndex(b => b.bus_id === id)
-    if (index !== -1) buses.splice(index, 1)
+    await api.delete(`/buses/${id}`)
     return { success: true }
   },
 
-  // Routes
-  listRoutes: async () => {
-    await delay(300)
+  // ==================== STATIONS ====================
+  listStations: async (params = {}) => {
+    const response = await api.get('/stations', { params })
+    const stations = response.data.data || []
+    return stations.map(s => ({
+      ...s,
+      station_id: s._id,
+      latitude: s.address?.latitude,
+      longitude: s.address?.longitude,
+      fullAddress: s.address?.fullAddress,
+      district: s.address?.district,
+      city: s.address?.city
+    }))
+  },
+
+  // 🔴 LẤY CHI TIẾT TRẠM + HỌC SINH GẦN ĐÓ (500m)
+  getStation: async (id) => {
+    const response = await api.get(`/stations/${id}`)
+    return response.data.data // { station, students: [{..., isAssigned}] }
+  },
+
+  getWalkingDirections: async (stationId, lat, lng) => {
+    const response = await api.get(`/stations/${stationId}/walking-directions`, {
+      params: { lat, lng }
+    })
+    return response.data.data
+  },
+
+  createStation: async (data) => {
+    const payload = {
+      name: data.name,
+      address: {
+        fullAddress: data.fullAddress || data.address,
+        street: data.street || '',
+        district: data.district || '',
+        city: data.city || 'Hồ Chí Minh',
+        latitude: parseFloat(data.latitude),
+        longitude: parseFloat(data.longitude)
+      }
+    }
+    const response = await api.post('/stations', payload)
+    return response.data.data
+  },
+
+  updateStation: async (id, data) => {
+    const response = await api.patch(`/stations/${id}`, data)
+    return response.data.data
+  },
+
+  deleteStation: async (id) => {
+    await api.delete(`/stations/${id}`)
+    return { success: true }
+  },
+
+  // ==================== ROUTES ====================
+  listRoutes: async (params = {}) => {
+    const response = await api.get('/routes', { params })
+    const routes = response.data.data || []
     return routes.map(r => ({
       ...r,
-      stops: stops.filter(s => s.route_id === r.route_id),
-      start: stops.find(s => s.route_id === r.route_id && s.seq_index === 1)?.name || '',
-      end: stops.filter(s => s.route_id === r.route_id).sort((a, b) => b.seq_index - a.seq_index)[0]?.name || '',
-      distance: '5 km'
+      route_id: r._id,
+      stops: r.orderedStops || [],
+      distance: r.distanceMeters ? `${(r.distanceMeters / 1000).toFixed(1)} km` : '—',
+      duration: r.durationSeconds ? `${Math.round(r.durationSeconds / 60)} phút` : '—'
     }))
   },
+
+  getRoute: async (id) => {
+    const response = await api.get(`/routes/${id}`)
+    return response.data.data
+  },
+
   createRoute: async (data) => {
-    await delay(300)
-    const newRoute = { ...data, route_id: routes.length + 1 }
-    routes.push(newRoute)
-    return newRoute
+    const response = await api.post('/routes', {
+      name: data.name,
+      stationIds: data.stationIds || data.stop_ids || []
+    })
+    return response.data.data
   },
+
   updateRoute: async (id, data) => {
-    await delay(300)
-    const index = routes.findIndex(r => r.route_id === id)
-    if (index !== -1) routes[index] = { ...routes[index], ...data }
-    return routes[index]
+    const response = await api.patch(`/routes/${id}`, data)
+    return response.data.data
   },
+
   deleteRoute: async (id) => {
-    await delay(300)
-    const index = routes.findIndex(r => r.route_id === id)
-    if (index !== -1) routes.splice(index, 1)
+    await api.delete(`/routes/${id}`)
     return { success: true }
   },
 
-  // Stops
-  createStop: async (data) => {
-    await delay(300)
-    const newStop = { ...data, stop_id: stops.length + 1 }
-    stops.push(newStop)
-    return newStop
+  // ==================== SCHEDULES ====================
+  listSchedules: async (params = {}) => {
+    const response = await api.get('/schedules', { params })
+    const schedules = response.data.data || []
+    return schedules.map(s => ({
+      ...s,
+      schedule_id: s._id,
+      route_name: s.routeId?.name || '',
+      bus_plate: s.busId?.licensePlate || '',
+      driver_name: s.driverId?.name || ''
+    }))
   },
-  updateStop: async (id, data) => {
-    await delay(300)
-    const index = stops.findIndex(s => s.stop_id === id)
-    if (index !== -1) stops[index] = { ...stops[index], ...data }
-    return stops[index]
+
+  getSchedule: async (id) => {
+    const response = await api.get(`/schedules/${id}`)
+    return response.data.data
   },
-  deleteStop: async (id) => {
-    await delay(300)
-    const index = stops.findIndex(s => s.stop_id === id)
-    if (index !== -1) stops.splice(index, 1)
+
+  // 🔴 LẤY ROUTE ĐỂ VẼ BẢN ĐỒ
+  getScheduleRoute: async (id) => {
+    const response = await api.get(`/schedules/${id}/route`)
+    return response.data.data
+    // { routeName, shape, stops, distance, duration }
+  },
+
+  // 🔴 GÁN HỌC SINH VÀO TRẠM TRONG LỊCH TRÌNH
+  assignStudentsToStation: async (scheduleId, stationId, studentIds) => {
+    const response = await api.patch(
+      `/schedules/${scheduleId}/stopTimes/${stationId}/students`,
+      { studentIds }
+    )
+    return response.data.data
+  },
+
+  createSchedule: async (data) => {
+    const response = await api.post('/schedules', {
+      routeId: data.routeId || data.route_id,
+      busId: data.busId || data.bus_id,
+      driverId: data.driverId || data.driver_id,
+      direction: data.direction || 'PICK_UP',
+      daysOfWeek: data.daysOfWeek || [1, 2, 3, 4, 5],
+      startDate: data.startDate,
+      endDate: data.endDate
+    })
+    return response.data.data
+  },
+
+  updateSchedule: async (id, data) => {
+    const response = await api.patch(`/schedules/${id}`, data)
+    return response.data.data
+  },
+
+  deleteSchedule: async (id) => {
+    await api.delete(`/schedules/${id}`)
     return { success: true }
   },
 
-  // Trips
-  listTrips: async () => {
-    await delay(300)
+  // ==================== TRIPS ====================
+  listTrips: async (params = {}) => {
+    const response = await api.get('/trips', { params })
+    const trips = response.data.data || []
     return trips.map(t => ({
       ...t,
-      route: routes.find(r => r.route_id === t.route_id),
-      bus: buses.find(b => b.bus_id === t.bus_id),
-      driver: users.find(u => u.user_id === buses.find(b => b.bus_id === t.bus_id)?.driver_id)?.name || '',
-      stops: stops.filter(s => s.route_id === t.route_id),
-      passengers: students.slice(0, 2)
+      trip_id: t._id,
+      route_name: t.routeId?.name || t.scheduleId?.routeId?.name || '',
+      bus_plate: t.busId?.licensePlate || '',
+      driver_name: t.driverId?.name || ''
     }))
   },
+
+  getMySchedule: async () => {
+    const response = await api.get('/trips/my-schedule')
+    return response.data.data || []
+  },
+
+  // 🔴 LẤY CHI TIẾT CHUYẾN ĐI (ĐẦY ĐỦ ĐỂ VẼ MAP)
+  getTrip: async (id) => {
+    const response = await api.get(`/trips/${id}`)
+    return response.data.data
+  },
+
+  getTripStudents: async (tripId) => {
+    const response = await api.get(`/trips/${tripId}/students`)
+    return response.data.data || []
+  },
+
   createTrip: async (data) => {
-    await delay(300)
-    const newTrip = { ...data, trip_id: trips.length + 1 }
-    trips.push(newTrip)
-    return newTrip
+    const response = await api.post('/trips', data)
+    return response.data.data
   },
+
+  // Check-in thủ công
+  checkInStudent: async (tripId, studentId, stationId) => {
+    const response = await api.patch(`/trips/${tripId}/check-in`, {
+      studentId,
+      stationId
+    })
+    return response.data
+  },
+
+  // 🔴 CHECK-IN BẰNG CAMERA (FACE RECOGNITION)
+  checkInWithFace: async (tripId, imageFile) => {
+    const formData = new FormData()
+    formData.append('image', imageFile)
+    
+    const response = await api.post(`/trips/${tripId}/check-in-face`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+
+  markStudentAbsent: async (tripId, studentId) => {
+    const response = await api.patch(`/trips/${tripId}/mark-absent`, { studentId })
+    return response.data
+  },
+
   updateTrip: async (id, data) => {
-    await delay(300)
-    const index = trips.findIndex(t => t.trip_id === id)
-    if (index !== -1) trips[index] = { ...trips[index], ...data }
-    return trips[index]
+    const response = await api.patch(`/trips/${id}`, data)
+    return response.data.data
   },
+
   deleteTrip: async (id) => {
-    await delay(300)
-    const index = trips.findIndex(t => t.trip_id === id)
-    if (index !== -1) trips.splice(index, 1)
+    await api.delete(`/trips/${id}`)
     return { success: true }
   },
 
-  // Messages
+  // ==================== NOTIFICATIONS ====================
+  listNotifications: async (params = {}) => {
+    const response = await api.get('/notifications/me', { params })
+    return response.data.data || []
+  },
+
+  deleteNotification: async (id) => {
+    await api.delete(`/notifications/${id}`)
+    return { success: true }
+  },
+
+  // ==================== MESSAGES ====================
   listMessages: async () => {
-    await delay(300)
-    return messages
+    try {
+      const response = await api.get('/messages/me')
+      return response.data.data || []
+    } catch {
+      return []
+    }
   },
+
+  sendMessage: async (data) => {
+    const response = await api.post('/messages', data)
+    return response.data.data
+  },
+
+  // ==================== ALERTS ====================
+  listAlerts: async (params = {}) => {
+    try {
+      const response = await api.get('/alerts', { params })
+      return response.data.data || []
+    } catch {
+      return []
+    }
+  },
+
+  // ==================== DASHBOARD STATS ====================
+  getDashboardStats: async () => {
+    try {
+      const [students, drivers, buses, routes, trips] = await Promise.all([
+        AdminService.listStudents(),
+        AdminService.listDrivers(),
+        AdminService.listBuses(),
+        AdminService.listRoutes(),
+        AdminService.listTrips()
+      ])
+
+      const today = new Date().toISOString().split('T')[0]
+      const todayTrips = trips.filter(t => t.tripDate?.startsWith(today))
+      const activeTrips = todayTrips.filter(t => t.status === 'IN_PROGRESS')
+      const completedTrips = todayTrips.filter(t => t.status === 'COMPLETED')
+
+      return {
+        totalStudents: students.length,
+        totalDrivers: drivers.length,
+        totalBuses: buses.length,
+        totalRoutes: routes.length,
+        todayTrips: todayTrips.length,
+        activeTrips: activeTrips.length,
+        completedTrips: completedTrips.length
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error)
+      return {
+        totalStudents: 0,
+        totalDrivers: 0,
+        totalBuses: 0,
+        totalRoutes: 0,
+        todayTrips: 0,
+        activeTrips: 0,
+        completedTrips: 0
+      }
+    }
+  }
 }
 
-// Realtime mock: simple listeners list and interval updates
-const listeners = new Set()
-setInterval(() => {
-  // move bus 1 slightly west every 3 seconds; bus 2 slightly south
-  const b1 = navigation_logs.find((n) => n.bus_id === 1)
-  if (b1) {
-    b1.longitude -= 0.0008
-    b1.latitude += 0.0003
-    b1.recorded_at = new Date().toISOString()
-  }
-  const b2 = navigation_logs.find((n) => n.bus_id === 2)
-  if (b2) {
-    b2.latitude -= 0.0006
-    b2.longitude += 0.0004
-    b2.recorded_at = new Date().toISOString()
-  }
-  const payload = navigation_logs
-  listeners.forEach((cb) => cb(payload))
-}, 3000)
-
-export const Realtime = {
-  subscribe(cb) {
-    listeners.add(cb)
-    // send immediately
-    cb(navigation_logs)
-    return () => listeners.delete(cb)
-  },
-}
+export default AdminService

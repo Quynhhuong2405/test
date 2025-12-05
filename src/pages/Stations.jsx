@@ -8,19 +8,16 @@ import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RefreshIcon from '@mui/icons-material/Refresh'
-import SchoolIcon from '@mui/icons-material/School'
-import CameraAltIcon from '@mui/icons-material/CameraAlt'
+import PlaceIcon from '@mui/icons-material/Place'
 import SearchIcon from '@mui/icons-material/Search'
-import FaceIcon from '@mui/icons-material/Face'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import WarningIcon from '@mui/icons-material/Warning'
+import LocationOnIcon from '@mui/icons-material/LocationOn'
+import MapIcon from '@mui/icons-material/Map'
 import { AdminService } from '../api/services'
-import StudentFormDialog from '../components/StudentFormDialog'
-import FaceUploadDialog from '../components/FaceUploadDialog'
+import StationFormDialog from '../components/StationFormDialog'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useNotify } from '../hooks/useNotify'
 
-export default function Students() {
+export default function Stations() {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -32,9 +29,7 @@ export default function Students() {
 
   // Dialog states
   const [openForm, setOpenForm] = useState(false)
-  const [openFaceDialog, setOpenFaceDialog] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [selectedStudentForFace, setSelectedStudentForFace] = useState(null)
   const [confirm, setConfirm] = useState({ open: false, row: null })
 
   const notify = useNotify()
@@ -43,7 +38,8 @@ export default function Students() {
     setLoading(true)
     setError(null)
     try {
-      const data = await AdminService. listStudents()
+      const data = await AdminService.listStations()
+      console.log('Stations data:', data)
       setRows(data || [])
     } catch (err) {
       console.error('Error:', err)
@@ -61,16 +57,12 @@ export default function Students() {
   const onAdd = () => { setEditing(null); setOpenForm(true) }
   const onEdit = (row) => { setEditing(row); setOpenForm(true) }
   const onDelete = (row) => { setConfirm({ open: true, row }) }
-  const onUploadFace = (row) => {
-    setSelectedStudentForFace(row)
-    setOpenFaceDialog(true)
-  }
 
   const confirmDelete = async () => {
     try {
       if (confirm.row) {
-        await AdminService.deleteStudent(confirm.row._id || confirm.row.student_id)
-        notify.success('Xóa học sinh thành công')
+        await AdminService.deleteStation(confirm.row._id)
+        notify.success('Xóa trạm thành công')
         fetchData()
       }
     } catch {
@@ -82,11 +74,11 @@ export default function Students() {
   const onSubmit = async (form) => {
     try {
       if (editing) {
-        await AdminService. updateStudent(editing._id || editing.student_id, form)
+        await AdminService.updateStation(editing._id, form)
         notify.success('Cập nhật thành công')
       } else {
-        await AdminService.createStudent(form)
-        notify.success('Thêm học sinh thành công')
+        await AdminService.createStation(form)
+        notify.success('Thêm trạm thành công')
       }
       setOpenForm(false)
       setEditing(null)
@@ -97,11 +89,13 @@ export default function Students() {
   }
 
   // Filter data
-  const filteredRows = rows.filter(row =>
-    row.name?. toLowerCase().includes(searchTerm.toLowerCase()) ||
-    row. grade?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    row.fullAddress?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredRows = rows.filter(row => {
+    const name = row.name?.toLowerCase() || ''
+    const address = row.address?.fullAddress?.toLowerCase() || ''
+    const district = row.address?.district?.toLowerCase() || ''
+    const search = searchTerm.toLowerCase()
+    return name.includes(search) || address.includes(search) || district.includes(search)
+  })
 
   // Paginate
   const paginatedRows = filteredRows.slice(
@@ -109,34 +103,17 @@ export default function Students() {
     page * rowsPerPage + rowsPerPage
   )
 
-  // Stats
-  const totalStudents = rows.length
-  const studentsWithFace = rows.filter(r => r.hasFaceData).length
-
   return (
     <Box>
       {/* Header */}
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b' }}>
-            🎒 Quản lý học sinh
+            📍 Quản lý trạm dừng
           </Typography>
-          <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-            <Chip
-              icon={<SchoolIcon />}
-              label={`${totalStudents} học sinh`}
-              color="primary"
-              variant="outlined"
-              size="small"
-            />
-            <Chip
-              icon={<FaceIcon />}
-              label={`${studentsWithFace} đã đăng ký khuôn mặt`}
-              color="success"
-              variant="outlined"
-              size="small"
-            />
-          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Quản lý các trạm đón/trả học sinh ({rows.length} trạm)
+          </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <Button
@@ -153,11 +130,11 @@ export default function Students() {
             onClick={onAdd}
             sx={{
               borderRadius: 2,
-              background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-              '&:hover': { background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' }
+              background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+              '&:hover': { background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)' }
             }}
           >
-            Thêm học sinh
+            Thêm trạm
           </Button>
         </Stack>
       </Stack>
@@ -165,7 +142,7 @@ export default function Students() {
       {/* Search bar */}
       <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <TextField
-          placeholder="Tìm kiếm theo tên, lớp, địa chỉ..."
+          placeholder="Tìm kiếm theo tên, địa chỉ, quận..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           fullWidth
@@ -189,7 +166,7 @@ export default function Students() {
       )}
 
       {/* Table */}
-      {loading ?  (
+      {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
           <CircularProgress size={50} />
         </Box>
@@ -199,110 +176,87 @@ export default function Students() {
             <Table>
               <TableHead sx={{ bgcolor: '#f8fafc' }}>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, width: 250 }}>Học sinh</TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 100 }}>Lớp</TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 200 }}>Phụ huynh</TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: 250 }}>Tên trạm</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Địa chỉ</TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 140 }} align="center">Khuôn mặt</TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 150 }} align="center">Hành động</TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: 120 }}>Quận/Huyện</TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: 150 }} align="center">Tọa độ</TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: 120 }} align="center">Hành động</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paginatedRows. length > 0 ? (
+                {paginatedRows.length > 0 ? (
                   paginatedRows.map((row, index) => (
                     <TableRow
-                      key={row._id || row.student_id || index}
+                      key={row._id || index}
                       hover
                       sx={{ '&:last-child td': { borderBottom: 0 } }}
                     >
                       <TableCell>
                         <Stack direction="row" spacing={1.5} alignItems="center">
                           <Avatar
-                            src={row.avatar}
                             sx={{
                               width: 44,
                               height: 44,
-                              bgcolor: '#22c55e',
-                              border: row.hasFaceData ? '2px solid #22c55e' : 'none'
+                              bgcolor: '#8b5cf6'
                             }}
                           >
-                            <SchoolIcon />
+                            <PlaceIcon />
                           </Avatar>
                           <Box>
-                            <Typography fontWeight={600}>{row. name}</Typography>
-                            <Typography variant="caption" color="text. secondary">
-                              ID: {(row._id || row.student_id)?.slice(-6)}
+                            <Typography fontWeight={600}>{row.name || '—'}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              ID: {row._id?.slice(-6) || '—'}
                             </Typography>
                           </Box>
                         </Stack>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={row.grade || row.class || '—'}
-                          size="small"
-                          sx={{ bgcolor: '#e0e7ff', color: '#4338ca', fontWeight: 500 }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Box>
-                          <Typography variant="body2" fontWeight={500}>
-                            {row.parent_name || row. parentId?. name || '—'}
-                          </Typography>
-                          <Typography variant="caption" color="text. secondary">
-                            {row.parent_phone || row.parentId?.phoneNumber || ''}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title={row.fullAddress || '—'}>
+                        <Tooltip title={row.address?.fullAddress || '—'}>
                           <Typography
                             variant="body2"
                             sx={{
-                              maxWidth: 200,
+                              maxWidth: 300,
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap'
                             }}
                           >
-                            {row.fullAddress || '—'}
+                            {row.address?.fullAddress || row.address?.street || '—'}
                           </Typography>
                         </Tooltip>
                       </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={row.address?.district || row.address?.city || '—'}
+                          size="small"
+                          sx={{ bgcolor: '#e0e7ff', color: '#4338ca' }}
+                        />
+                      </TableCell>
                       <TableCell align="center">
-                        {row.hasFaceData ? (
-                          <Chip
-                            icon={<CheckCircleIcon />}
-                            label="Đã đăng ký"
-                            size="small"
-                            color="success"
-                            variant="outlined"
-                          />
+                        {row.address?.latitude && row.address?.longitude ? (
+                          <Tooltip title={`${row.address.latitude}, ${row.address.longitude}`}>
+                            <Chip
+                              icon={<LocationOnIcon />}
+                              label="Xem"
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                              onClick={() => {
+                                window.open(
+                                  `https://www.google.com/maps? q=${row.address.latitude},${row.address.longitude}`,
+                                  '_blank'
+                                )
+                              }}
+                              sx={{ cursor: 'pointer' }}
+                            />
+                          </Tooltip>
                         ) : (
-                          <Chip
-                            icon={<WarningIcon />}
-                            label="Chưa có"
-                            size="small"
-                            color="warning"
-                            variant="outlined"
-                          />
+                          <Typography variant="caption" color="text.secondary">—</Typography>
                         )}
                       </TableCell>
                       <TableCell align="center">
                         <Stack direction="row" spacing={0.5} justifyContent="center">
-                          <Tooltip title="Đăng ký khuôn mặt">
-                            <IconButton
-                              size="small"
-                              onClick={() => onUploadFace(row)}
-                              sx={{
-                                color: '#6366f1',
-                                bgcolor: '#e0e7ff',
-                                '&:hover': { bgcolor: '#c7d2fe' }
-                              }}
-                            >
-                              <CameraAltIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Sửa thông tin">
+                          <Tooltip title="Sửa">
                             <IconButton
                               size="small"
                               sx={{ color: '#f59e0b', '&:hover': { bgcolor: '#fef3c7' } }}
@@ -326,10 +280,10 @@ export default function Students() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                      <SchoolIcon sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
+                    <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
+                      <PlaceIcon sx={{ fontSize: 60, color: '#e2e8f0', mb: 2 }} />
                       <Typography color="text.secondary">
-                        {searchTerm ? 'Không tìm thấy học sinh phù hợp' : 'Chưa có dữ liệu học sinh'}
+                        {searchTerm ? 'Không tìm thấy trạm phù hợp' : 'Chưa có dữ liệu trạm dừng'}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -346,7 +300,7 @@ export default function Students() {
             onPageChange={(e, newPage) => setPage(newPage)}
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target. value, 10))
+              setRowsPerPage(parseInt(e.target.value, 10))
               setPage(0)
             }}
             rowsPerPageOptions={[5, 10, 25, 50]}
@@ -357,24 +311,19 @@ export default function Students() {
       )}
 
       {/* Dialogs */}
-      <StudentFormDialog
-        open={openForm}
-        onClose={() => setOpenForm(false)}
-        initialValue={editing}
-        onSubmit={onSubmit}
-      />
-
-      <FaceUploadDialog
-        open={openFaceDialog}
-        onClose={() => setOpenFaceDialog(false)}
-        student={selectedStudentForFace}
-        onSuccess={fetchData}
-      />
+      {openForm && (
+        <StationFormDialog
+          open={openForm}
+          onClose={() => setOpenForm(false)}
+          initialValue={editing}
+          onSubmit={onSubmit}
+        />
+      )}
 
       <ConfirmDialog
         open={confirm.open}
-        title="Xóa học sinh"
-        message={`Bạn có chắc muốn xóa học sinh "${confirm.row?.name}"?  Hành động này không thể hoàn tác. `}
+        title="Xóa trạm dừng"
+        message={`Bạn có chắc muốn xóa trạm "${confirm.row?.name}"? Hành động này không thể hoàn tác.`}
         cancelText="Hủy"
         okText="Xóa"
         onCancel={() => setConfirm({ open: false, row: null })}

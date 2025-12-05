@@ -1,47 +1,87 @@
-import React from "react"
-import { Grid, Paper, Typography, Box, Stack, Button, List, ListItem, ListItemIcon, ListItemText, Divider, LinearProgress, Avatar, Chip } from "@mui/material"
+import React, { useState, useEffect } from "react"
+import { Grid, Paper, Typography, Box, Stack, Button, List, ListItem, ListItemIcon, ListItemText, Divider, LinearProgress, Avatar, Chip, CircularProgress } from "@mui/material"
 import PeopleIcon from "@mui/icons-material/People"
 import DirectionsBusIcon from "@mui/icons-material/DirectionsBus"
 import PersonIcon from "@mui/icons-material/Person"
 import RouteIcon from "@mui/icons-material/Route"
-import TrendingUpIcon from "@mui/icons-material/TrendingUp"
+import PlaceIcon from "@mui/icons-material/Place"
 import ScheduleIcon from "@mui/icons-material/Schedule"
 import CheckCircleIcon from "@mui/icons-material/CheckCircle"
 import WarningIcon from "@mui/icons-material/Warning"
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive"
 import DirectionsRunIcon from "@mui/icons-material/DirectionsRun"
 import { useNavigate } from "react-router-dom"
-
-const stats = [
-  { title: "Tổng học sinh", value: "150", icon: <PeopleIcon />, color: "#22c55e", trend: "+12 tuần này" },
-  { title: "Tổng tài xế", value: "12", icon: <PersonIcon />, color: "#6366f1", trend: "Đang hoạt động" },
-  { title: "Tổng xe buýt", value: "8", icon: <DirectionsBusIcon />, color: "#f59e0b", trend: "6 đang chạy" },
-  { title: "Tuyến đường", value: "5", icon: <RouteIcon />, color: "#ef4444", trend: "Hoạt động tốt" },
-]
-
-const recentActivities = [
-  { time: "08:30", message: "Xe 51B-12345 đã xuất phát tuyến A", type: "success" },
-  { time: "08:25", message: "Học sinh Nguyễn Văn A đã lên xe", type: "info" },
-  { time: "08:20", message: "Tài xế Trần B đã check-in", type: "info" },
-  { time: "08:15", message: "Xe 51B-67890 đang bảo trì", type: "warning" },
-  { time: "08:00", message: "Hệ thống khởi động thành công", type: "success" },
-]
-
-const quickActions = [
-  { label: "Thêm học sinh", path: "/admin/students", icon: <PeopleIcon /> },
-  { label: "Thêm tài xế", path: "/admin/drivers", icon: <PersonIcon /> },
-  { label: "Quản lý xe", path: "/admin/buses", icon: <DirectionsBusIcon /> },
-  { label: "Xem Live Tracking", path: "/admin/tracking", icon: <DirectionsRunIcon /> },
-]
-
-const todaySchedule = [
-  { route: "Tuyến A", bus: "51B-12345", driver: "Nguyễn Văn A", status: "Đang chạy", progress: 65 },
-  { route: "Tuyến B", bus: "51B-67890", driver: "Trần Văn B", status: "Chưa bắt đầu", progress: 0 },
-  { route: "Tuyến C", bus: "51B-11111", driver: "Lê Văn C", status: "Hoàn thành", progress: 100 },
-]
+import { AdminService } from "../api/services"
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    students: 0,
+    drivers: 0,
+    buses: 0,
+    routes: 0,
+    stations: 0
+  })
+  const [alerts, setAlerts] = useState([])
+  const [trips, setTrips] = useState([])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        const [students, drivers, buses, routes, stations, alertsData, tripsData] = await Promise.all([
+          AdminService.listStudents(),
+          AdminService.listDrivers(),
+          AdminService.listBuses(),
+          AdminService.listRoutes(),
+          AdminService.listStations(),
+          AdminService.listAlerts().catch(() => []),
+          AdminService.listTrips().catch(() => [])
+        ])
+
+        setStats({
+          students: students.length,
+          drivers: drivers.length,
+          buses: buses.length,
+          routes: routes.length,
+          stations: stations.length
+        })
+        setAlerts(alertsData.slice(0, 5))
+        setTrips(tripsData.slice(0, 5))
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  const statCards = [
+    { title: "Học sinh", value: stats.students, icon: <PeopleIcon />, color: "#22c55e", path: "/admin/students" },
+    { title: "Tài xế", value: stats.drivers, icon: <PersonIcon />, color: "#6366f1", path: "/admin/drivers" },
+    { title: "Xe buýt", value: stats.buses, icon: <DirectionsBusIcon />, color: "#f59e0b", path: "/admin/buses" },
+    { title: "Tuyến đường", value: stats.routes, icon: <RouteIcon />, color: "#ef4444", path: "/admin/routes" },
+    { title: "Trạm dừng", value: stats.stations, icon: <PlaceIcon />, color: "#8b5cf6", path: "/admin/stations" },
+  ]
+
+  const quickActions = [
+    { label: "Thêm học sinh", path: "/admin/students", icon: <PeopleIcon /> },
+    { label: "Thêm tài xế", path: "/admin/drivers", icon: <PersonIcon /> },
+    { label: "Quản lý xe", path: "/admin/buses", icon: <DirectionsBusIcon /> },
+    { label: "Xem cảnh báo", path: "/admin/alerts", icon: <WarningIcon /> },
+    { label: "Theo dõi GPS", path: "/admin/tracking", icon: <DirectionsRunIcon /> },
+  ]
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <CircularProgress size={60} />
+      </Box>
+    )
+  }
 
   return (
     <Box>
@@ -52,7 +92,7 @@ export default function Dashboard() {
             Dashboard
           </Typography>
           <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5 }}>
-            Chào mừng trở lại!  Đây là tổng quan hệ thống hôm nay. 
+            Chào mừng trở lại!  Đây là tổng quan hệ thống hôm nay.
           </Typography>
         </Box>
         <Chip 
@@ -64,10 +104,11 @@ export default function Dashboard() {
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        {stats.map((stat) => (
-          <Grid item xs={12} sm={6} md={3} key={stat.title}>
+        {statCards.map((stat) => (
+          <Grid item xs={12} sm={6} md={2.4} key={stat.title}>
             <Paper
               elevation={0}
+              onClick={() => navigate(stat.path)}
               sx={{
                 p: 3,
                 borderRadius: 3,
@@ -75,10 +116,12 @@ export default function Dashboard() {
                 alignItems: "center",
                 gap: 2,
                 border: '1px solid #e2e8f0',
-                transition: 'all 0. 3s',
+                cursor: 'pointer',
+                transition: 'all 0.3s',
                 '&:hover': {
                   boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
-                  transform: 'translateY(-4px)'
+                  transform: 'translateY(-4px)',
+                  borderColor: stat.color
                 }
               }}
             >
@@ -96,15 +139,12 @@ export default function Dashboard() {
               >
                 {stat.icon}
               </Box>
-              <Box sx={{ flex: 1 }}>
+              <Box>
                 <Typography variant="h4" fontWeight="bold" sx={{ color: '#1e293b' }}>
                   {stat.value}
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#64748b' }}>
                   {stat.title}
-                </Typography>
-                <Typography variant="caption" sx={{ color: stat.color, fontWeight: 500 }}>
-                  {stat.trend}
                 </Typography>
               </Box>
             </Paper>
@@ -147,78 +187,92 @@ export default function Dashboard() {
           </Paper>
         </Grid>
 
-        {/* Today's Schedule */}
+        {/* Recent Trips */}
         <Grid item xs={12} md={8}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-            <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: '#1e293b' }}>
-              📅 Lịch trình hôm nay
-            </Typography>
-            <Stack spacing={2}>
-              {todaySchedule.map((schedule, idx) => (
-                <Box key={idx} sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Avatar sx={{ bgcolor: '#6366f1', width: 36, height: 36 }}>
-                        <DirectionsBusIcon fontSize="small" />
-                      </Avatar>
-                      <Box>
-                        <Typography fontWeight="600" sx={{ color: '#1e293b' }}>{schedule.route}</Typography>
-                        <Typography variant="caption" sx={{ color: '#64748b' }}>
-                          {schedule.bus} • {schedule.driver}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                    <Chip 
-                      size="small"
-                      label={schedule.status}
-                      color={schedule.progress === 100 ? 'success' : schedule.progress > 0 ? 'primary' : 'default'}
-                    />
-                  </Stack>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={schedule.progress} 
-                    sx={{ 
-                      height: 6, 
-                      borderRadius: 3,
-                      bgcolor: '#e2e8f0',
-                      '& .MuiLinearProgress-bar': {
-                        bgcolor: schedule.progress === 100 ? '#22c55e' : '#6366f1',
-                        borderRadius: 3
-                      }
-                    }}
-                  />
-                </Box>
-              ))}
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ color: '#1e293b' }}>
+                🚍 Chuyến đi gần đây
+              </Typography>
+              <Button size="small" onClick={() => navigate('/admin/schedules')}>
+                Xem tất cả
+              </Button>
             </Stack>
+            {trips.length > 0 ? (
+              <Stack spacing={2}>
+                {trips.map((trip, idx) => (
+                  <Box key={trip._id || idx} sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Avatar sx={{ bgcolor: '#6366f1', width: 36, height: 36 }}>
+                          <DirectionsBusIcon fontSize="small" />
+                        </Avatar>
+                        <Box>
+                          <Typography fontWeight="600" sx={{ color: '#1e293b' }}>
+                            {trip.route_name || trip.routeId?.name || `Chuyến #${idx + 1}`}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#64748b' }}>
+                            {trip.bus_plate || trip.busId?.licensePlate || 'N/A'} • {trip.driver || 'N/A'}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <Chip 
+                        size="small"
+                        label={trip.status === 'COMPLETED' ? 'Hoàn thành' : trip.status === 'IN_PROGRESS' ? 'Đang chạy' : 'Chưa bắt đầu'}
+                        color={trip.status === 'COMPLETED' ? 'success' : trip.status === 'IN_PROGRESS' ? 'primary' : 'default'}
+                      />
+                    </Stack>
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <Typography color="text.secondary" textAlign="center" py={4}>
+                Chưa có chuyến đi nào
+              </Typography>
+            )}
           </Paper>
         </Grid>
 
-        {/* Recent Activities */}
+        {/* Recent Alerts */}
         <Grid item xs={12}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-            <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: '#1e293b' }}>
-              🔔 Hoạt động gần đây
-            </Typography>
-            <List sx={{ py: 0 }}>
-              {recentActivities. map((activity, idx) => (
-                <React.Fragment key={idx}>
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemIcon sx={{ minWidth: 40 }}>
-                      {activity.type === 'success' && <CheckCircleIcon sx={{ color: '#22c55e' }} />}
-                      {activity.type === 'warning' && <WarningIcon sx={{ color: '#f59e0b' }} />}
-                      {activity.type === 'info' && <NotificationsActiveIcon sx={{ color: '#6366f1' }} />}
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary={activity.message}
-                      secondary={activity.time}
-                      primaryTypographyProps={{ fontWeight: 500, color: '#1e293b' }}
-                      secondaryTypographyProps={{ color: '#64748b' }}
-                    />
-                  </ListItem>
-                  {idx < recentActivities.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </List>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ color: '#1e293b' }}>
+                ⚠️ Cảnh báo gần đây
+              </Typography>
+              <Button size="small" onClick={() => navigate('/admin/alerts')}>
+                Xem tất cả
+              </Button>
+            </Stack>
+            {alerts.length > 0 ? (
+              <List sx={{ py: 0 }}>
+                {alerts.map((alert, idx) => (
+                  <React.Fragment key={alert._id || idx}>
+                    <ListItem sx={{ px: 0 }}>
+                      <ListItemIcon sx={{ minWidth: 40 }}>
+                        <WarningIcon sx={{ color: alert.type === 'SOS' ? '#ef4444' : '#f59e0b' }} />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={alert.message}
+                        secondary={`${alert.bus_plate || ''} • ${new Date(alert.createdAt || alert.timestamp).toLocaleString('vi-VN')}`}
+                        primaryTypographyProps={{ fontWeight: 500, color: '#1e293b' }}
+                        secondaryTypographyProps={{ color: '#64748b' }}
+                      />
+                      <Chip 
+                        size="small" 
+                        label={alert.type || 'INFO'} 
+                        color={alert.type === 'SOS' ? 'error' : 'warning'}
+                      />
+                    </ListItem>
+                    {idx < alerts.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            ) : (
+              <Typography color="text.secondary" textAlign="center" py={4}>
+                Không có cảnh báo nào
+              </Typography>
+            )}
           </Paper>
         </Grid>
       </Grid>

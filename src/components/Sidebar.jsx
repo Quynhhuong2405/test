@@ -1,114 +1,161 @@
-import { List, ListItemButton, ListItemIcon, ListItemText, Box, Toolbar, Tooltip, Divider, IconButton } from '@mui/material'
+import React from 'react'
+import { Box, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography, Avatar, Stack, Divider, Chip } from '@mui/material'
+import { NavLink, useLocation } from 'react-router-dom'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import SchoolIcon from '@mui/icons-material/School'
-import RouteIcon from '@mui/icons-material/AltRoute'
-import DirectionsBusIcon from '@mui/icons-material/DirectionsBus'
 import PeopleIcon from '@mui/icons-material/People'
+import DirectionsBusIcon from '@mui/icons-material/DirectionsBus'
+import PlaceIcon from '@mui/icons-material/Place'
+import RouteIcon from '@mui/icons-material/Route'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
-import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
+import DirectionsIcon from '@mui/icons-material/Directions'
+import WarningIcon from '@mui/icons-material/Warning'
 import NotificationsIcon from '@mui/icons-material/Notifications'
-import MyLocationIcon from '@mui/icons-material/MyLocation'
-import { NavLink, useLocation } from 'react-router-dom'
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
-import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import { useState } from 'react'
+import LogoutIcon from '@mui/icons-material/Logout'
 
-const items = [
-  { to: '/admin/dashboard', icon: <DashboardIcon />, label: 'Dashboard' },
-  { to: '/admin/students', icon: <SchoolIcon />, label: 'Danh sách học sinh' },
-  { to: '/admin/drivers', icon: <PeopleIcon />, label: 'Danh sách tài xế' },
-  { to: '/admin/buses', icon: <DirectionsBusIcon />, label: 'Danh sách xe' },
-  { to: '/admin/routes', icon: <RouteIcon />, label: 'Tuyến đường' },
-  { to: '/admin/schedules', icon: <CalendarMonthIcon />, label: 'Lịch trình' },
-  { to: '/admin/assignments', icon: <CompareArrowsIcon />, label: 'Phân công' },
-  { to: '/admin/messages', icon: <NotificationsIcon />, label: 'Thông báo' },
-  { to: '/admin/tracking', icon: <MyLocationIcon />, label: 'Live Tracking' },
+const DRAWER_WIDTH = 280
+
+const menuItems = [
+  { to: '/admin/dashboard', icon: <DashboardIcon />, label: 'Dashboard', color: '#6366f1' },
+  { to: '/admin/students', icon: <SchoolIcon />, label: 'Học sinh', color: '#22c55e' },
+  { to: '/admin/drivers', icon: <PeopleIcon />, label: 'Tài xế', color: '#f59e0b' },
+  { to: '/admin/buses', icon: <DirectionsBusIcon />, label: 'Xe buýt', color: '#ef4444' },
+  { to: '/admin/stations', icon: <PlaceIcon />, label: 'Trạm dừng', color: '#8b5cf6' },
+  { to: '/admin/routes', icon: <RouteIcon />, label: 'Tuyến đường', color: '#06b6d4' },
+  { to: '/admin/schedules', icon: <CalendarMonthIcon />, label: 'Lịch trình', color: '#ec4899' },
+  { to: '/admin/trips', icon: <DirectionsIcon />, label: 'Chuyến đi', color: '#14b8a6' },
+  { to: '/admin/alerts', icon: <WarningIcon />, label: 'Cảnh báo', color: '#f97316' },
+  { to: '/admin/messages', icon: <NotificationsIcon />, label: 'Thông báo', color: '#64748b' },
 ]
-
-const SIDEBAR_WIDTH = 260
-const SIDEBAR_COLLAPSED_WIDTH = 72
 
 export default function Sidebar() {
   const location = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
-  
-  const currentWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('user')
+    window.location.href = '/admin/login'
+  }
 
   return (
-    <Box 
-      sx={{ 
-        width: currentWidth, 
-        flexShrink: 0, 
-        borderRight: '1px solid #e2e8f0', 
-        height: '100vh', 
-        position: 'sticky', 
-        top: 0, 
-        bgcolor: 'white', 
-        display: 'flex', 
-        flexDirection: 'column',
-        transition: 'width 0.2s ease'
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: DRAWER_WIDTH,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width: DRAWER_WIDTH,
+          boxSizing: 'border-box',
+          border: 'none',
+          bgcolor: '#0f172a',
+          color: 'white'
+        },
       }}
     >
-      <Toolbar sx={{ minHeight: 64 }} />
-      <Divider />
-      <List sx={{ px: 1, py: 1, flex: 1, overflowY: 'auto' }}>
-        {items.map((item) => {
-          const active = location.pathname === item.to || location.pathname.startsWith(item.to + '/')
-          const button = (
-            <ListItemButton
-              key={item. to}
-              component={NavLink}
-              to={item. to}
-              selected={active}
-              sx={{
-                gap: 1,
-                borderRadius: 2,
-                my: 0.5,
-                transition: 'all 0.2s',
-                '&. Mui-selected': {
-                  bgcolor: '#6366f1',
-                  color: 'white',
-                  '& .MuiListItemIcon-root': { color: 'white' },
-                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0. 4)',
-                },
-                '&. Mui-selected:hover': { 
-                  bgcolor: '#4f46e5',
-                },
-                '&:hover': {
-                  bgcolor: '#e0e7ff',
-                }
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: active ? 'white' : '#6366f1' }}>
-                {item.icon}
-              </ListItemIcon>
-              {! collapsed && (
+      {/* Logo */}
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <Avatar sx={{ bgcolor: '#6366f1', width: 45, height: 45 }}>
+            <DirectionsBusIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h6" fontWeight="bold" sx={{ color: 'white', lineHeight: 1.2 }}>
+              SafeToSchool
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+              Admin Panel
+            </Typography>
+          </Box>
+        </Stack>
+      </Box>
+
+      <Divider sx={{ borderColor: '#1e293b', mx: 2 }} />
+
+      {/* Menu Items */}
+      <List sx={{ px: 2, py: 2, flex: 1 }}>
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + '/')
+          
+          return (
+            <ListItem key={item.to} disablePadding sx={{ mb: 0.5 }}>
+              <ListItemButton
+                component={NavLink}
+                to={item.to}
+                sx={{
+                  borderRadius: 2,
+                  py: 1.2,
+                  bgcolor: isActive ? `${item.color}20` : 'transparent',
+                  '&:hover': { bgcolor: isActive ? `${item.color}30` : '#1e293b' },
+                  transition: 'all 0.2s'
+                }}
+              >
+                <ListItemIcon sx={{ 
+                  color: isActive ? item.color : '#94a3b8', 
+                  minWidth: 40,
+                  '& svg': { fontSize: 22 }
+                }}>
+                  {item.icon}
+                </ListItemIcon>
                 <ListItemText 
-                  primary={item.label} 
-                  primaryTypographyProps={{ fontWeight: active ? 600 : 500, fontSize: '0.9rem' }} 
+                  primary={item.label}
+                  primaryTypographyProps={{
+                    fontWeight: isActive ? 600 : 400,
+                    fontSize: '0.9rem',
+                    color: isActive ? 'white' : '#cbd5e1'
+                  }}
                 />
-              )}
-            </ListItemButton>
-          )
-          return collapsed ?  (
-            <Tooltip key={item. to} title={item.label} placement="right">{button}</Tooltip>
-          ) : (
-            button
+                {isActive && (
+                  <Box sx={{ 
+                    width: 4, 
+                    height: 20, 
+                    bgcolor: item.color, 
+                    borderRadius: 2,
+                    ml: 1
+                  }} />
+                )}
+              </ListItemButton>
+            </ListItem>
           )
         })}
       </List>
-      
-      {/* Collapse toggle */}
-      <Box sx={{ px: 1, pb: 1 }}>
-        <Divider sx={{ mb: 1 }} />
-        <IconButton 
-          onClick={() => setCollapsed((v) => !v)} 
-          sx={{ mx: 'auto', display: 'block', color: '#6366f1' }} 
-          size="small"
+
+      <Divider sx={{ borderColor: '#1e293b', mx: 2 }} />
+
+      {/* User Info & Logout */}
+      <Box sx={{ p: 2 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2, p: 1.5, bgcolor: '#1e293b', borderRadius: 2 }}>
+          <Avatar sx={{ bgcolor: '#6366f1', width: 40, height: 40 }}>
+            {user.name?.charAt(0) || 'A'}
+          </Avatar>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="body2" fontWeight={600} noWrap sx={{ color: 'white' }}>
+              {user.name || 'Admin'}
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+              {user.role || 'Administrator'}
+            </Typography>
+          </Box>
+        </Stack>
+
+        <ListItemButton
+          onClick={handleLogout}
+          sx={{
+            borderRadius: 2,
+            py: 1.2,
+            bgcolor: '#ef444420',
+            '&:hover': { bgcolor: '#ef444430' }
+          }}
         >
-          {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-        </IconButton>
+          <ListItemIcon sx={{ color: '#ef4444', minWidth: 40 }}>
+            <LogoutIcon />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Đăng xuất"
+            primaryTypographyProps={{ color: '#ef4444', fontWeight: 500 }}
+          />
+        </ListItemButton>
       </Box>
-    </Box>
+    </Drawer>
   )
 }
